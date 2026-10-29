@@ -33,9 +33,8 @@ final class TasksViewModel {
     }
 
     func fetchTasks() -> [TaskItem] {
-        let descriptor = FetchDescriptor<TaskItem>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
         do {
-            return Self.sorted(try modelContext.fetch(descriptor))
+            return Self.sorted(try modelContext.fetch(FetchDescriptor<TaskItem>()))
         } catch {
             errorMessage = "No se pudieron cargar las tareas: \(error.localizedDescription)"
             return []

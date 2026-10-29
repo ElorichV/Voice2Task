@@ -45,7 +45,7 @@ struct GitHubService {
     func listIssues(owner: String, repo: String, token: String? = nil) async throws -> [GitHubIssue] {
         if useMockData {
             try? await Task.sleep(for: .milliseconds(500))
-            return GitHubIssue.mockIssues
+            return await MockIssueStore.shared.all()
         }
 
         var components = URLComponents(url: try repoURL(owner: owner, repo: repo, path: "issues"), resolvingAgainstBaseURL: false)
@@ -67,8 +67,7 @@ struct GitHubService {
     func createIssue(owner: String, repo: String, title: String, body: String, token: String) async throws -> GitHubIssue {
         if useMockData {
             try? await Task.sleep(for: .milliseconds(500))
-            let number = Int.random(in: 100...999)
-            return GitHubIssue(id: number, number: number, title: title, body: body, state: "open", htmlURL: nil, createdAt: .now, pullRequest: nil)
+            return await MockIssueStore.shared.create(title: title, body: body)
         }
 
         let token = token.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,4 +154,22 @@ private struct CreateIssueBody: Encodable {
 
 private struct GitHubErrorBody: Decodable {
     let message: String?
+}
+
+/// Demo-mode issue tracker, so issues created during the pitch show up in the GitHub tab (resets on relaunch).
+private actor MockIssueStore {
+    static let shared = MockIssueStore()
+
+    private var issues = GitHubIssue.mockIssues
+
+    func all() -> [GitHubIssue] {
+        issues
+    }
+
+    func create(title: String, body: String) -> GitHubIssue {
+        let number = (issues.map(\.number).max() ?? 0) + 1
+        let issue = GitHubIssue(id: number, number: number, title: title, body: body, state: "open", htmlURL: nil, createdAt: .now, pullRequest: nil)
+        issues.insert(issue, at: 0)
+        return issue
+    }
 }

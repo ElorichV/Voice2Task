@@ -50,7 +50,7 @@ final class AudioService {
     @ObservationIgnored private var simulationTask: Task<Void, Never>?
 
     /// Dictated word by word in demo mode (matches `TaskItem.mockTasks`).
-    static let demoScript = "Hoy tengo que preparar la demo del pitch, es urgente. Esta semana hay que revisar la integración con GitHub. Y cuando haya tiempo, diseñar el ícono de la app."
+    nonisolated static let demoScript = "Hoy tengo que preparar la demo del pitch, es urgente. Esta semana hay que revisar la integración con GitHub. Y cuando haya tiempo, diseñar el ícono de la app."
 
     func requestPermissions() async throws {
         let speechStatus = await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in

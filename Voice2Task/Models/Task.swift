@@ -8,6 +8,15 @@ enum Priority: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Lower sorts first (alta → media → baja).
+    var sortOrder: Int {
+        switch self {
+        case .alta: 0
+        case .media: 1
+        case .baja: 2
+        }
+    }
+
     var displayName: String {
         switch self {
         case .alta: "Alta"

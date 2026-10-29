@@ -106,7 +106,7 @@ struct GitHubIssuesView: View {
     }
 
     private var reloadKey: String {
-        "\(viewModel.owner)/\(viewModel.repo)/\(viewModel.useMockData)"
+        "\(viewModel.repositoryKey)/\(viewModel.token)"
     }
 
     private var errorBinding: Binding<Bool> {

@@ -25,10 +25,11 @@ final class TasksViewModel {
         save()
     }
 
-    func markAsSynced(_ task: TaskItem, issueNumber: Int) {
+    /// Throws if the link can't be persisted. The in-memory task stays marked so it isn't uploaded twice this session.
+    func markAsSynced(_ task: TaskItem, issueNumber: Int) throws {
         task.syncedToGitHub = true
         task.githubIssueNumber = issueNumber
-        save()
+        try modelContext.save()
     }
 
     func fetchTasks() -> [TaskItem] {

@@ -38,6 +38,9 @@ final class GitHubViewModel {
     var syncSuccessMessage: String?
 
     @ObservationIgnored private let defaults: UserDefaults
+    /// Ignores responses from superseded loads (e.g. the user changed the repo mid-request).
+    @ObservationIgnored private var loadGeneration = 0
+    @ObservationIgnored private var loadedRepositoryKey: String?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -56,6 +59,11 @@ final class GitHubViewModel {
         Constants.useMockData || (isRepositoryConfigured && !token.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
+    /// Identifies whose issues are in `issues`.
+    var repositoryKey: String {
+        "\(owner)/\(repo)/\(useMockData)"
+    }
+
     func isSyncing(_ task: TaskItem) -> Bool {
         syncingTaskIDs.contains(task.id)
     }
@@ -63,13 +71,27 @@ final class GitHubViewModel {
     // MARK: - Acciones
 
     func loadIssues() async {
-        guard !isLoading else { return }
+        let key = repositoryKey
+        if key != loadedRepositoryKey {
+            issues = []
+        }
+        loadGeneration += 1
+        let generation = loadGeneration
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            if generation == loadGeneration { isLoading = false }
+        }
 
         do {
-            issues = try await service.listIssues(owner: owner, repo: repo, token: token.isEmpty ? nil : token)
+            let fetched = try await service.listIssues(owner: owner, repo: repo, token: token.isEmpty ? nil : token)
+            guard generation == loadGeneration else { return }
+            issues = fetched
+            loadedRepositoryKey = key
         } catch {
+            guard generation == loadGeneration else { return }
+            // Never leave another repository's issues on screen after a failed load.
+            issues = []
+            loadedRepositoryKey = nil
             errorMessage = error.localizedDescription
         }
     }
@@ -85,22 +107,51 @@ final class GitHubViewModel {
         syncingTaskIDs.insert(task.id)
         defer { syncingTaskIDs.remove(task.id) }
 
+        let issue: GitHubIssue
+        let reusedExisting: Bool
         do {
-            let issue = try await service.createIssue(
-                owner: owner,
-                repo: repo,
-                title: task.title,
-                body: Self.issueBody(for: task),
-                token: token
-            )
-            tasksViewModel.markAsSynced(task, issueNumber: issue.number)
-            issues.insert(issue, at: 0)
-            syncSuccessMessage = "Issue #\(issue.number) creado en GitHub."
-            return true
+            if let existing = await existingIssue(for: task) {
+                issue = existing
+                reusedExisting = true
+            } else {
+                issue = try await service.createIssue(
+                    owner: owner,
+                    repo: repo,
+                    title: task.title,
+                    body: Self.issueBody(for: task),
+                    token: token
+                )
+                reusedExisting = false
+            }
         } catch {
             syncErrorMessage = error.localizedDescription
             return false
         }
+
+        if repositoryKey == loadedRepositoryKey {
+            issues.removeAll { $0.id == issue.id }
+            issues.insert(issue, at: 0)
+        }
+
+        do {
+            try tasksViewModel.markAsSynced(task, issueNumber: issue.number)
+        } catch {
+            syncErrorMessage = "El issue #\(issue.number) está en GitHub, pero no se pudo guardar el vínculo en el dispositivo "
+                + "(\(error.localizedDescription)). Si vuelves a subir la tarea, se vinculará al mismo issue sin duplicarlo."
+            return false
+        }
+        syncSuccessMessage = reusedExisting
+            ? "Tarea vinculada al issue #\(issue.number) que ya existía en GitHub."
+            : "Issue #\(issue.number) creado en GitHub."
+        return true
+    }
+
+    /// An open issue previously created for this task (found by the marker in its body), e.g. when the
+    /// local "synced" flag failed to persist after creation. Prevents duplicate issues on retry.
+    private func existingIssue(for task: TaskItem) async -> GitHubIssue? {
+        let marker = Self.issueMarker(for: task)
+        let candidates = (try? await service.listIssues(owner: owner, repo: repo, token: token.isEmpty ? nil : token)) ?? issues
+        return candidates.first { $0.body?.contains(marker) == true }
     }
 
     // MARK: - Private
@@ -116,6 +167,12 @@ final class GitHubViewModel {
         }
         lines.append("")
         lines.append("_Creado desde Voice2Task_")
+        lines.append(issueMarker(for: task))
         return lines.joined(separator: "\n")
+    }
+
+    /// Hidden in GitHub's rendered Markdown.
+    static func issueMarker(for task: TaskItem) -> String {
+        "<!-- voice2task-id: \(task.id.uuidString) -->"
     }
 }

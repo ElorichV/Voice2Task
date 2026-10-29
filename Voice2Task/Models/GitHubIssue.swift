@@ -27,7 +27,7 @@ struct GitHubIssue: Codable, Identifiable, Hashable {
 
 extension GitHubIssue {
     static let mockIssues: [GitHubIssue] = [
-        GitHubIssue(id: 1, number: 1, title: "Preparar demo del pitch", body: "Creado desde Voice2Task", state: "open", htmlURL: nil, createdAt: .now, pullRequest: nil),
+        GitHubIssue(id: 1, number: 1, title: "Configurar repositorio del hackathon", body: "Creado desde Voice2Task", state: "open", htmlURL: nil, createdAt: .now, pullRequest: nil),
         GitHubIssue(id: 2, number: 2, title: "Revisar integración con OpenAI", body: nil, state: "open", htmlURL: nil, createdAt: .now, pullRequest: nil),
     ]
 }

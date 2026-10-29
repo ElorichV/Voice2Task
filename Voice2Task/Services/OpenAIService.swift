@@ -119,8 +119,9 @@ struct OpenAIService {
         }
 
         return payload.tasks.compactMap { extracted in
-            let title = extracted.title.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !title.isEmpty else { return nil }
+            guard let title = extracted.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else {
+                return nil
+            }
             return TaskItem(
                 title: title,
                 priority: Priority(fromAI: extracted.priority),
@@ -193,12 +194,47 @@ private struct APIErrorResponse: Decodable {
     let error: APIError
 }
 
-private struct TasksPayload: Decodable {
+/// Decodes tolerantly: a malformed entry (missing title, wrong types, not an object) is skipped
+/// instead of discarding the whole response. Only a missing/invalid top-level `tasks` array fails.
+struct TasksPayload: Decodable {
     struct ExtractedTask: Decodable {
-        let title: String
+        let title: String?
         let priority: String?
         let dueDate: String?
+
+        enum CodingKeys: String, CodingKey {
+            case title, priority, dueDate
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            title = try? container.decodeIfPresent(String.self, forKey: .title)
+            priority = try? container.decodeIfPresent(String.self, forKey: .priority)
+            dueDate = try? container.decodeIfPresent(String.self, forKey: .dueDate)
+        }
+    }
+
+    private struct SkippedEntry: Decodable {
+        init(from decoder: Decoder) throws {}
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case tasks
     }
 
     let tasks: [ExtractedTask]
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        var list = try container.nestedUnkeyedContainer(forKey: .tasks)
+        var tasks: [ExtractedTask] = []
+        while !list.isAtEnd {
+            if let task = try? list.decode(ExtractedTask.self) {
+                tasks.append(task)
+            } else if (try? list.decode(SkippedEntry.self)) == nil {
+                break
+            }
+        }
+        self.tasks = tasks
+    }
 }

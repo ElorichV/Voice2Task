@@ -23,9 +23,14 @@ final class RecordingViewModel {
 
     var transcribedText: String { audioService.transcribedText }
     var isRecording: Bool { audioService.isRecording }
+    var isFinalizingTranscription: Bool { audioService.isFinalizing }
 
+    /// Only after recording stops and the final transcript has arrived, so trailing words aren't dropped.
     var canProcess: Bool {
-        !transcribedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing
+        !transcribedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !isRecording
+            && !isFinalizingTranscription
+            && !isProcessing
     }
 
     var canProcessManualText: Bool {
@@ -58,6 +63,7 @@ final class RecordingViewModel {
     // MARK: - AI processing
 
     func processTranscription() async {
+        guard canProcess else { return }
         await process(text: transcribedText)
     }
 

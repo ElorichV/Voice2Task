@@ -36,6 +36,8 @@ final class AudioService {
     var transcribedText = ""
     private(set) var lastResult: TranscriptionResult?
     private(set) var isRecording = false
+    /// True between `stopRecording()` and the recognizer's final result, so callers don't process a partial transcript.
+    private(set) var isFinalizing = false
     /// Set when recognition fails mid-recording (errors at start are thrown instead).
     var errorMessage: String?
 
@@ -44,6 +46,7 @@ final class AudioService {
     @ObservationIgnored private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     @ObservationIgnored private var recognitionTask: SFSpeechRecognitionTask?
     @ObservationIgnored private var isTapInstalled = false
+    @ObservationIgnored private var finalizeTimeout: Task<Void, Never>?
 
     func requestPermissions() async throws {
         let speechStatus = await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
@@ -116,6 +119,7 @@ final class AudioService {
 
     func stopRecording() {
         guard isRecording || isTapInstalled else { return }
+        let awaitingFinalResult = recognitionTask != nil
         recognitionRequest?.endAudio()
         if audioEngine.isRunning {
             audioEngine.stop()
@@ -125,6 +129,9 @@ final class AudioService {
         recognitionTask = nil
         isRecording = false
         deactivateSession()
+        if awaitingFinalResult {
+            beginFinalizing()
+        }
     }
 
     func reset() {
@@ -142,6 +149,10 @@ final class AudioService {
             lastResult = TranscriptionResult(text: text, confidence: confidence)
         }
 
+        if isFinal || errorText != nil {
+            finishFinalizing()
+        }
+
         if let errorText, isRecording {
             // Speech framework reports an error when no speech was detected; keep whatever text we already have.
             if transcribedText.isEmpty {
@@ -153,7 +164,25 @@ final class AudioService {
         }
     }
 
+    private func beginFinalizing() {
+        isFinalizing = true
+        finalizeTimeout?.cancel()
+        // Don't block processing forever if the recognizer never delivers a final result.
+        finalizeTimeout = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.isFinalizing = false
+        }
+    }
+
+    private func finishFinalizing() {
+        finalizeTimeout?.cancel()
+        finalizeTimeout = nil
+        isFinalizing = false
+    }
+
     private func tearDown() {
+        finishFinalizing()
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil

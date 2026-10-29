@@ -93,17 +93,24 @@ struct RecordingView: View {
             Task { await viewModel.processTranscription() }
         } label: {
             HStack {
-                if viewModel.isProcessing {
+                if viewModel.isProcessing || viewModel.isFinalizingTranscription {
                     ProgressView()
                         .tint(.white)
                 }
-                Label(viewModel.isProcessing ? "Procesando…" : "Procesar con IA", systemImage: "sparkles")
+                Label(processButtonTitle, systemImage: "sparkles")
             }
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .disabled(!viewModel.canProcess)
+    }
+
+    private var processButtonTitle: String {
+        if viewModel.isProcessing { return "Procesando…" }
+        if viewModel.isFinalizingTranscription { return "Finalizando transcripción…" }
+        if viewModel.isRecording { return "Detén la grabación para procesar" }
+        return "Procesar con IA"
     }
 
     private var extractedTasksCard: some View {

@@ -31,8 +31,11 @@ final class GitHubViewModel {
     private(set) var issues: [GitHubIssue] = []
     private(set) var isLoading = false
     private(set) var syncingTaskIDs: Set<UUID> = []
+    /// Errors loading issues (shown in the GitHub tab).
     var errorMessage: String?
-    var successMessage: String?
+    /// Result of syncing a task (shown in the Tasks tab).
+    var syncErrorMessage: String?
+    var syncSuccessMessage: String?
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -75,6 +78,10 @@ final class GitHubViewModel {
     @discardableResult
     func sync(_ task: TaskItem, tasksViewModel: TasksViewModel) async -> Bool {
         guard !task.syncedToGitHub, !syncingTaskIDs.contains(task.id) else { return false }
+        guard canSync else {
+            syncErrorMessage = "Configura el owner, el repo y el token en la pestaña GitHub (o activa el modo demo)."
+            return false
+        }
         syncingTaskIDs.insert(task.id)
         defer { syncingTaskIDs.remove(task.id) }
 
@@ -88,10 +95,10 @@ final class GitHubViewModel {
             )
             tasksViewModel.markAsSynced(task, issueNumber: issue.number)
             issues.insert(issue, at: 0)
-            successMessage = "Issue #\(issue.number) creado en GitHub."
+            syncSuccessMessage = "Issue #\(issue.number) creado en GitHub."
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            syncErrorMessage = error.localizedDescription
             return false
         }
     }

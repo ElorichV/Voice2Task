@@ -47,6 +47,10 @@ final class AudioService {
     @ObservationIgnored private var recognitionTask: SFSpeechRecognitionTask?
     @ObservationIgnored private var isTapInstalled = false
     @ObservationIgnored private var finalizeTimeout: Task<Void, Never>?
+    @ObservationIgnored private var simulationTask: Task<Void, Never>?
+
+    /// Dictated word by word in demo mode (matches `TaskItem.mockTasks`).
+    static let demoScript = "Hoy tengo que preparar la demo del pitch, es urgente. Esta semana hay que revisar la integración con GitHub. Y cuando haya tiempo, diseñar el ícono de la app."
 
     func requestPermissions() async throws {
         let speechStatus = await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
@@ -117,7 +121,31 @@ final class AudioService {
         isRecording = true
     }
 
+    /// Demo mode: types `script` word by word as if it were being transcribed live. No microphone needed.
+    func startSimulatedRecording(script: String = AudioService.demoScript) {
+        guard !isRecording else { return }
+        tearDown()
+        errorMessage = nil
+        transcribedText = ""
+        lastResult = nil
+        isRecording = true
+
+        let words = script.split(separator: " ").map(String.init)
+        simulationTask = Task { [weak self] in
+            for word in words {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let self, !Task.isCancelled else { return }
+                self.transcribedText += (self.transcribedText.isEmpty ? "" : " ") + word
+            }
+            self?.finishSimulation()
+        }
+    }
+
     func stopRecording() {
+        if simulationTask != nil {
+            finishSimulation()
+            return
+        }
         guard isRecording || isTapInstalled else { return }
         let awaitingFinalResult = recognitionTask != nil
         recognitionRequest?.endAudio()
@@ -181,7 +209,18 @@ final class AudioService {
         isFinalizing = false
     }
 
+    private func finishSimulation() {
+        simulationTask?.cancel()
+        simulationTask = nil
+        isRecording = false
+        if !transcribedText.isEmpty {
+            lastResult = TranscriptionResult(text: transcribedText, confidence: 1)
+        }
+    }
+
     private func tearDown() {
+        simulationTask?.cancel()
+        simulationTask = nil
         finishFinalizing()
         recognitionTask?.cancel()
         recognitionTask = nil

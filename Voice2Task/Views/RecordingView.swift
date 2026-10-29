@@ -11,6 +11,11 @@ struct RecordingView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     recordButton
+                    if viewModel.isDemoMode {
+                        Label("Modo demo: grabación simulada", systemImage: "theatermasks")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                     transcriptionCard
                     processButton
 

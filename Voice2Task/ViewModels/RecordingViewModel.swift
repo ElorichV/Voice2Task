@@ -24,6 +24,7 @@ final class RecordingViewModel {
     var transcribedText: String { audioService.transcribedText }
     var isRecording: Bool { audioService.isRecording }
     var isFinalizingTranscription: Bool { audioService.isFinalizing }
+    var isDemoMode: Bool { Constants.useMockData }
 
     /// Only after recording stops and the final transcript has arrived, so trailing words aren't dropped.
     var canProcess: Bool {
@@ -53,6 +54,10 @@ final class RecordingViewModel {
             return
         }
         lastExtractedTasks = []
+        if isDemoMode {
+            audioService.startSimulatedRecording()
+            return
+        }
         do {
             try await audioService.startRecording()
         } catch {

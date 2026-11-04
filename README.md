@@ -15,8 +15,6 @@ Con **Voice2Task** dictas todo lo que tienes pendiente, como se lo contarías a 
 
 La extracción de tareas tiene tres niveles: usa OpenAI si hay API key; si no, Apple Intelligence en el dispositivo (iOS 26); y si tampoco está disponible, un extractor local en español que funciona sin conexión. Así la app siempre sirve, incluso en una demo sin internet.
 
-La mascota es un oso, en guiño al videojuego 3D de osos de nuestro equipo en el hackathon.
-
 ## Cómo funciona
 
 1. **Graba:** toca el micrófono y habla. El oso te escucha con una onda de audio en vivo y `SFSpeechRecognizer` transcribe en español.

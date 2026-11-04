@@ -32,7 +32,7 @@ struct GitHubIssuesView: View {
                 } header: {
                     Text("Configuración")
                 } footer: {
-                    Text("El modo demo simula OpenAI y GitHub para presentar la app sin conexión.")
+                    Text("Sin API key, Voice2Task usa Apple Intelligence o su IA local sin conexión. El modo demo simula GitHub y la grabación.")
                 }
 
                 Section("Issues abiertos") {

@@ -10,6 +10,7 @@ final class RecordingViewModel {
     var manualText = ""
     private(set) var isProcessing = false
     private(set) var lastExtractedTasks: [TaskItem] = []
+    private(set) var lastEngine: ExtractionEngine?
     /// True after an AI failure, so the UI can offer demo data for the pitch.
     private(set) var canOfferMockFallback = false
 
@@ -89,6 +90,7 @@ final class RecordingViewModel {
         audioService.reset()
         manualText = ""
         lastExtractedTasks = []
+        lastEngine = nil
         dismissAlert()
     }
 
@@ -102,21 +104,22 @@ final class RecordingViewModel {
         defer { isProcessing = false }
 
         do {
-            let tasks = try await OpenAIService().extractTasks(from: text)
-            save(tasks)
+            let result = try await TaskExtractionService().extractTasks(from: text)
+            save(result.tasks, engine: result.engine)
         } catch {
             errorMessage = error.localizedDescription
             canOfferMockFallback = true
         }
     }
 
-    private func save(_ tasks: [TaskItem]) {
+    private func save(_ tasks: [TaskItem], engine: ExtractionEngine? = nil) {
         for task in tasks {
             modelContext.insert(task)
         }
         do {
             try modelContext.save()
             lastExtractedTasks = tasks
+            lastEngine = engine
         } catch {
             errorMessage = "No se pudieron guardar las tareas: \(error.localizedDescription)"
         }

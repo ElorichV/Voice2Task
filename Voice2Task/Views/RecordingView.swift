@@ -124,11 +124,22 @@ struct RecordingView: View {
                 .font(.headline)
                 .foregroundStyle(.green)
 
+            if let engine = viewModel.lastEngine {
+                Label("Procesado con \(engine.displayName)", systemImage: engine.systemImage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             ForEach(viewModel.lastExtractedTasks) { task in
                 HStack {
                     Text(task.title)
                     Spacer()
                     PriorityBadge(priority: task.priority)
+                    if let dueDate = task.dueDate {
+                        Text(dueDate.formatted(.dateTime.day().month(.abbreviated)))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 

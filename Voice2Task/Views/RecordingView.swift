@@ -3,11 +3,26 @@ import SwiftUI
 struct RecordingView: View {
     @Environment(RecordingViewModel.self) private var viewModel
     @State private var showManualInput = false
+    @State private var resultBearBounce = false
 
     var body: some View {
+        recordingScreen
+            .onChange(of: viewModel.tasksAddedCount) { oldValue, taskCount in
+                guard taskCount > oldValue else { return }
+                resultBearBounce = false
+                Task {
+                    try? await Task.sleep(for: .milliseconds(40))
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
+                        resultBearBounce = true
+                    }
+                }
+            }
+    }
+
+    private var recordingScreen: some View {
         @Bindable var viewModel = viewModel
 
-        NavigationStack {
+        return NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     recordButton
@@ -43,12 +58,23 @@ struct RecordingView: View {
                 Text(viewModel.alertMessage ?? "")
             }
         }
+        .sensoryFeedback(.start, trigger: viewModel.recordingStartCount)
+        .sensoryFeedback(.success, trigger: viewModel.tasksAddedCount)
+        .sensoryFeedback(.error, trigger: viewModel.errorCount)
     }
 
     // MARK: - Sections
 
     private var recordButton: some View {
         VStack(spacing: 12) {
+            if viewModel.isRecording {
+                VStack(spacing: 2) {
+                    BearMascotView(size: 54, mood: .listening)
+                    WaveformView(level: viewModel.audioLevel)
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             Button {
                 Task {
                     await viewModel.toggleRecording()
@@ -62,7 +88,7 @@ struct RecordingView: View {
                     .foregroundStyle(.white)
                     .frame(width: 120, height: 120)
                     .background(viewModel.isRecording ? Color.red : Color.accentColor, in: Circle())
-                    .shadow(color: (viewModel.isRecording ? Color.red : Color.accentColor).opacity(0.4), radius: 12, y: 6)
+                    .shadow(color: .black.opacity(0.12), radius: 10, y: 5)
                     .symbolEffect(.pulse, isActive: viewModel.isRecording)
             }
             .buttonStyle(.plain)
@@ -120,9 +146,14 @@ struct RecordingView: View {
 
     private var extractedTasksCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Se agregaron \(viewModel.lastExtractedTasks.count) tareas", systemImage: "checkmark.circle.fill")
-                .font(.headline)
-                .foregroundStyle(.green)
+            HStack(spacing: 10) {
+                BearMascotView(size: 42, mood: .happy)
+                    .scaleEffect(resultBearBounce ? 1 : 0.78)
+                    .rotationEffect(.degrees(resultBearBounce ? 0 : -8))
+                Label("Se agregaron \(viewModel.lastExtractedTasks.count) tareas", systemImage: "checkmark.circle.fill")
+                    .font(.headline)
+                    .foregroundStyle(.green)
+            }
 
             if let engine = viewModel.lastEngine {
                 Label("Procesado con \(engine.displayName)", systemImage: engine.systemImage)

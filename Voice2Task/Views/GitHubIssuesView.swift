@@ -2,39 +2,11 @@ import SwiftUI
 
 struct GitHubIssuesView: View {
     @Environment(GitHubViewModel.self) private var viewModel
+    @State private var isSettingsPresented = false
 
     var body: some View {
-        @Bindable var viewModel = viewModel
-
         NavigationStack {
             List {
-                Section {
-                    TextField("Owner (usuario u organización)", text: $viewModel.owner)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    TextField("Repositorio", text: $viewModel.repo)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    SecureField("Token de GitHub", text: $viewModel.token)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } header: {
-                    Text("Repositorio")
-                } footer: {
-                    Text("El token es opcional para ver issues de repos públicos, pero necesario para crearlos (permiso Issues: lectura y escritura).")
-                }
-
-                Section {
-                    SecureField("API key de OpenAI", text: $viewModel.openAIAPIKey)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    Toggle("Modo demo (datos de prueba)", isOn: $viewModel.useMockData)
-                } header: {
-                    Text("Configuración")
-                } footer: {
-                    Text("Sin API key, Voice2Task usa Apple Intelligence o su IA local sin conexión. El modo demo simula GitHub y la grabación.")
-                }
-
                 Section("Issues abiertos") {
                     issuesContent
                 }
@@ -42,19 +14,32 @@ struct GitHubIssuesView: View {
             .navigationTitle("GitHub")
             .refreshable { await viewModel.loadIssues() }
             .toolbar {
-                Button {
-                    Task { await viewModel.loadIssues() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isSettingsPresented = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Ajustes")
                 }
-                .disabled(viewModel.isLoading || !(viewModel.isRepositoryConfigured || viewModel.useMockData))
-                .accessibilityLabel("Recargar issues")
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await viewModel.loadIssues() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(viewModel.isLoading || !(viewModel.isRepositoryConfigured || viewModel.useMockData))
+                    .accessibilityLabel("Recargar issues")
+                }
             }
             .task(id: reloadKey) {
                 // Debounce while the user types the owner/repo.
                 try? await Task.sleep(for: .milliseconds(600))
                 guard !Task.isCancelled, viewModel.isRepositoryConfigured || viewModel.useMockData else { return }
                 await viewModel.loadIssues()
+            }
+            .sheet(isPresented: $isSettingsPresented) {
+                SettingsView()
             }
             .alert("Error de GitHub", isPresented: errorBinding) {
                 Button("OK", role: .cancel) {}
@@ -73,8 +58,11 @@ struct GitHubIssuesView: View {
                 Spacer()
             }
         } else if !(viewModel.isRepositoryConfigured || viewModel.useMockData) {
-            Text("Configura el owner y el repositorio para ver sus issues.")
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Configura el owner y el repositorio para ver sus issues.")
+                    .foregroundStyle(.secondary)
+                Button("Configurar") { isSettingsPresented = true }
+            }
         } else if viewModel.issues.isEmpty {
             Text("No hay issues abiertos.")
                 .foregroundStyle(.secondary)

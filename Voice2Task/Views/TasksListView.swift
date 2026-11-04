@@ -5,6 +5,8 @@ struct TasksListView: View {
     @Environment(TasksViewModel.self) private var tasksViewModel
     @Environment(GitHubViewModel.self) private var gitHubViewModel
     @Query(sort: \TaskItem.createdAt, order: .reverse) private var tasks: [TaskItem]
+    @State private var showCelebration = false
+    @State private var celebrationTimeout: Task<Void, Never>?
 
     private var pendingTasks: [TaskItem] { TasksViewModel.sorted(tasks.filter { !$0.isCompleted }) }
     private var completedTasks: [TaskItem] { TasksViewModel.sorted(tasks.filter(\.isCompleted)) }
@@ -34,7 +36,36 @@ struct TasksListView: View {
                     .animation(.default, value: tasks.map(\.isCompleted))
                 }
             }
+            .overlay {
+                if showCelebration {
+                    VStack(spacing: 12) {
+                        BearMascotView(size: 112, mood: .happy)
+                            .scaleEffect(showCelebration ? 1 : 0.85)
+                        Text("¡Todo listo!")
+                            .font(.title2.bold())
+                    }
+                    .padding(28)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+                    .transition(.scale.combined(with: .opacity))
+                    .allowsHitTesting(false)
+                }
+            }
             .navigationTitle("Tareas")
+            .onChange(of: tasks.map(\.isCompleted)) { oldValue, newValue in
+                guard oldValue.count == newValue.count,
+                      oldValue.contains(false),
+                      !newValue.contains(false) else { return }
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    showCelebration = true
+                }
+                celebrationTimeout?.cancel()
+                celebrationTimeout = Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    guard !Task.isCancelled else { return }
+                    withAnimation { showCelebration = false }
+                }
+            }
+            .onDisappear { celebrationTimeout?.cancel() }
             .alert("Error", isPresented: tasksErrorBinding) {
                 Button("OK", role: .cancel) {}
             } message: {

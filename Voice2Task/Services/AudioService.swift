@@ -34,6 +34,7 @@ enum AudioServiceError: LocalizedError {
 final class AudioService {
     /// Live transcription, updated as partial results arrive.
     var transcribedText = ""
+    private(set) var audioLevel: Float = 0
     private(set) var lastResult: TranscriptionResult?
     private(set) var isRecording = false
     /// True between `stopRecording()` and the recognizer's final result, so callers don't process a partial transcript.
@@ -80,6 +81,7 @@ final class AudioService {
 
         tearDown()
         transcribedText = ""
+        audioLevel = 0
         lastResult = nil
 
         let session = AVAudioSession.sharedInstance()
@@ -101,7 +103,11 @@ final class AudioService {
         request.shouldReportPartialResults = true
         recognitionRequest = request
 
-        Self.installTap(on: inputNode, format: format, request: request)
+        Self.installTap(on: inputNode, format: format, request: request) { [weak self] level in
+            Task { @MainActor [weak self] in
+                self?.audioLevel = level
+            }
+        }
         isTapInstalled = true
 
         recognitionTask = Self.startRecognition(with: speechRecognizer, request: request) { [weak self] text, confidence, isFinal, errorText in
@@ -119,6 +125,7 @@ final class AudioService {
         }
 
         isRecording = true
+        audioLevel = 0
     }
 
     /// Demo mode: types `script` word by word as if it were being transcribed live. No microphone needed.
@@ -135,6 +142,7 @@ final class AudioService {
             for word in words {
                 try? await Task.sleep(for: .milliseconds(250))
                 guard let self, !Task.isCancelled else { return }
+                self.audioLevel = Float.random(in: 0.15...1)
                 self.transcribedText += (self.transcribedText.isEmpty ? "" : " ") + word
             }
             self?.finishSimulation()
@@ -156,6 +164,7 @@ final class AudioService {
         recognitionRequest = nil
         recognitionTask = nil
         isRecording = false
+        audioLevel = 0
         deactivateSession()
         if awaitingFinalResult {
             beginFinalizing()
@@ -165,6 +174,7 @@ final class AudioService {
     func reset() {
         tearDown()
         transcribedText = ""
+        audioLevel = 0
         lastResult = nil
         errorMessage = nil
     }
@@ -213,6 +223,7 @@ final class AudioService {
         simulationTask?.cancel()
         simulationTask = nil
         isRecording = false
+        audioLevel = 0
         if !transcribedText.isEmpty {
             lastResult = TranscriptionResult(text: transcribedText, confidence: 1)
         }
@@ -246,10 +257,28 @@ final class AudioService {
     nonisolated private static func installTap(
         on node: AVAudioInputNode,
         format: AVAudioFormat,
-        request: SFSpeechAudioBufferRecognitionRequest
+        request: SFSpeechAudioBufferRecognitionRequest,
+        onAudioLevel: @escaping @Sendable (Float) -> Void
     ) {
+        let throttle = AudioLevelThrottle()
         node.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             request.append(buffer)
+            let frameCount = Int(buffer.frameLength)
+            let channelCount = Int(buffer.format.channelCount)
+            guard throttle.shouldEmit(),
+                  frameCount > 0,
+                  channelCount > 0,
+                  let channelData = buffer.floatChannelData else { return }
+
+            var sumOfSquares = 0.0
+            for channel in 0..<channelCount {
+                for frame in 0..<frameCount {
+                    let sample = Double(channelData[channel][frame])
+                    sumOfSquares += sample * sample
+                }
+            }
+            let rms = sqrt(sumOfSquares / Double(frameCount * channelCount))
+            onAudioLevel(min(Float(rms * 8), 1))
         }
     }
 
@@ -272,5 +301,20 @@ final class AudioService {
         guard let segments = result?.bestTranscription.segments, !segments.isEmpty else { return 0 }
         let total = segments.reduce(Float(0)) { $0 + $1.confidence }
         return Double(total / Float(segments.count))
+    }
+}
+
+private final class AudioLevelThrottle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastUpdate: UInt64 = 0
+
+    func shouldEmit() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let now = DispatchTime.now().uptimeNanoseconds
+        guard now - lastUpdate >= 50_000_000 else { return false }
+        lastUpdate = now
+        return true
     }
 }

@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct Voice2TaskApp: App {
     let modelContainer: ModelContainer
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     @State private var recordingViewModel: RecordingViewModel
     @State private var tasksViewModel: TasksViewModel
@@ -20,10 +21,20 @@ struct Voice2TaskApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .fullScreenCover(isPresented: onboardingBinding) {
+                    OnboardingView { hasSeenOnboarding = true }
+                }
                 .environment(recordingViewModel)
                 .environment(tasksViewModel)
                 .environment(gitHubViewModel)
         }
         .modelContainer(modelContainer)
+    }
+
+    private var onboardingBinding: Binding<Bool> {
+        Binding(
+            get: { !hasSeenOnboarding },
+            set: { if !$0 { hasSeenOnboarding = true } }
+        )
     }
 }

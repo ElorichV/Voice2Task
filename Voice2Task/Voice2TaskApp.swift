@@ -10,7 +10,7 @@ struct Voice2TaskApp: App {
     @State private var gitHubViewModel: GitHubViewModel
 
     init() {
-        let container = Self.makeModelContainer()
+        let container = AppModelContainer.shared
         modelContainer = container
         _recordingViewModel = State(initialValue: RecordingViewModel(modelContext: container.mainContext))
         _tasksViewModel = State(initialValue: TasksViewModel(modelContext: container.mainContext))
@@ -25,18 +25,5 @@ struct Voice2TaskApp: App {
                 .environment(gitHubViewModel)
         }
         .modelContainer(modelContainer)
-    }
-
-    private static func makeModelContainer() -> ModelContainer {
-        do {
-            return try ModelContainer(for: TaskItem.self)
-        } catch {
-            // Fallback: if the on-disk store can't be opened, keep the app usable with an in-memory store.
-            do {
-                return try ModelContainer(for: TaskItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-            } catch {
-                fatalError("No se pudo crear el ModelContainer: \(error)")
-            }
-        }
     }
 }

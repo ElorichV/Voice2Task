@@ -4,7 +4,7 @@
 
 <h1 align="center">Voice2Task</h1>
 
-<p align="center"><b>Habla. El oso escucha. Tus pendientes se convierten en tareas.</b><br>
+<p align="center"><b>Habla. El búho escucha. Tus pendientes se convierten en tareas.</b><br>
 App iOS nativa que convierte una nota de voz en tareas con prioridad, fecha límite y recordatorio, y las sube como issues de GitHub. Funciona sin conexión y sin API keys.</p>
 
 ## Descripción
@@ -17,7 +17,7 @@ La extracción de tareas tiene tres niveles: usa OpenAI si hay API key; si no, A
 
 ## Cómo funciona
 
-1. **Graba:** toca el micrófono y habla. El oso te escucha con una onda de audio en vivo y `SFSpeechRecognizer` transcribe en español.
+1. **Graba:** toca el micrófono y habla. El búho te escucha con una onda de audio en vivo y `SFSpeechRecognizer` transcribe en español.
 2. **Procesa:** "Procesar con IA" divide la nota en tareas y detecta prioridades (*urgente*, *cuando haya tiempo*) y fechas (*hoy*, *mañana*, *el viernes*, *esta semana*).
 3. **Organiza:** edita, completa o crea tareas a mano. Un anillo de progreso muestra lo pendiente para hoy y lo vencido, y al terminar todo aparece "¡Todo listo!".
 4. **Comparte:** sube cada tarea como issue de GitHub. Si una tarea ya tiene issue, se vincula al existente y no se duplica.

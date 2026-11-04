@@ -12,7 +12,7 @@ struct OnboardingView: View {
                 pageContent(
                     title: "Habla, Voice2Task escucha",
                     message: "Dicta todo lo que tienes pendiente, como se lo contarías a un compañero.",
-                    showsBear: true
+                    showsMascot: true
                 )
                 .tag(0)
 
@@ -57,11 +57,11 @@ struct OnboardingView: View {
         .interactiveDismissDisabled()
     }
 
-    private func pageContent(title: String, message: String, showsBear: Bool = false) -> some View {
+    private func pageContent(title: String, message: String, showsMascot: Bool = false) -> some View {
         VStack(spacing: 24) {
             Spacer()
-            if showsBear {
-                BearMascotView(size: 190, mood: .listening)
+            if showsMascot {
+                MascotView(size: 190, mood: .listening)
                     .padding(.bottom, 12)
             } else {
                 Image(systemName: title.hasPrefix("La IA") ? "sparkles" : "arrow.up.circle")

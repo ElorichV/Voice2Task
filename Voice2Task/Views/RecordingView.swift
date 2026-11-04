@@ -3,17 +3,17 @@ import SwiftUI
 struct RecordingView: View {
     @Environment(RecordingViewModel.self) private var viewModel
     @State private var showManualInput = false
-    @State private var resultBearBounce = false
+    @State private var resultMascotBounce = false
 
     var body: some View {
         recordingScreen
             .onChange(of: viewModel.tasksAddedCount) { oldValue, taskCount in
                 guard taskCount > oldValue else { return }
-                resultBearBounce = false
+                resultMascotBounce = false
                 Task {
                     try? await Task.sleep(for: .milliseconds(40))
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
-                        resultBearBounce = true
+                        resultMascotBounce = true
                     }
                 }
             }
@@ -69,7 +69,7 @@ struct RecordingView: View {
         VStack(spacing: 12) {
             if viewModel.isRecording {
                 VStack(spacing: 2) {
-                    BearMascotView(size: 54, mood: .listening)
+                    MascotView(size: 54, mood: .listening)
                     WaveformView(level: viewModel.audioLevel)
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -147,9 +147,9 @@ struct RecordingView: View {
     private var extractedTasksCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                BearMascotView(size: 42, mood: .happy)
-                    .scaleEffect(resultBearBounce ? 1 : 0.78)
-                    .rotationEffect(.degrees(resultBearBounce ? 0 : -8))
+                MascotView(size: 42, mood: .happy)
+                    .scaleEffect(resultMascotBounce ? 1 : 0.78)
+                    .rotationEffect(.degrees(resultMascotBounce ? 0 : -8))
                 Label("Se agregaron \(viewModel.lastExtractedTasks.count) tareas", systemImage: "checkmark.circle.fill")
                     .font(.headline)
                     .foregroundStyle(.green)

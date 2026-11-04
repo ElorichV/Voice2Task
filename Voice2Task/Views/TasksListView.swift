@@ -32,7 +32,7 @@ struct TasksListView: View {
                         Label {
                             Text("Sin tareas todavía — graba una nota o toca +")
                         } icon: {
-                            BearMascotView(size: 88, mood: .happy)
+                            MascotView(size: 88, mood: .happy)
                         }
                     } description: {
                         Text("Tus tareas aparecerán aquí.")
@@ -59,7 +59,7 @@ struct TasksListView: View {
             .overlay {
                 if showCelebration {
                     VStack(spacing: 12) {
-                        BearMascotView(size: 112, mood: .happy)
+                        MascotView(size: 112, mood: .happy)
                             .scaleEffect(showCelebration ? 1 : 0.85)
                         Text("¡Todo listo!")
                             .font(.title2.bold())

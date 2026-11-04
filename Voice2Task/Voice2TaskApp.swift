@@ -1,16 +1,23 @@
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 @main
 struct Voice2TaskApp: App {
     let modelContainer: ModelContainer
+    private let notificationDelegate: ReminderNotificationDelegate
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     @State private var recordingViewModel: RecordingViewModel
     @State private var tasksViewModel: TasksViewModel
     @State private var gitHubViewModel: GitHubViewModel
 
     init() {
-        let container = Self.makeModelContainer()
+        let notificationDelegate = ReminderNotificationDelegate()
+        self.notificationDelegate = notificationDelegate
+        UNUserNotificationCenter.current().delegate = notificationDelegate
+
+        let container = AppModelContainer.shared
         modelContainer = container
         _recordingViewModel = State(initialValue: RecordingViewModel(modelContext: container.mainContext))
         _tasksViewModel = State(initialValue: TasksViewModel(modelContext: container.mainContext))
@@ -20,6 +27,9 @@ struct Voice2TaskApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .fullScreenCover(isPresented: onboardingBinding) {
+                    OnboardingView { hasSeenOnboarding = true }
+                }
                 .environment(recordingViewModel)
                 .environment(tasksViewModel)
                 .environment(gitHubViewModel)
@@ -27,16 +37,10 @@ struct Voice2TaskApp: App {
         .modelContainer(modelContainer)
     }
 
-    private static func makeModelContainer() -> ModelContainer {
-        do {
-            return try ModelContainer(for: TaskItem.self)
-        } catch {
-            // Fallback: if the on-disk store can't be opened, keep the app usable with an in-memory store.
-            do {
-                return try ModelContainer(for: TaskItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-            } catch {
-                fatalError("No se pudo crear el ModelContainer: \(error)")
-            }
-        }
+    private var onboardingBinding: Binding<Bool> {
+        Binding(
+            get: { !hasSeenOnboarding },
+            set: { if !$0 { hasSeenOnboarding = true } }
+        )
     }
 }

@@ -10,6 +10,10 @@ final class RecordingViewModel {
     var manualText = ""
     private(set) var isProcessing = false
     private(set) var lastExtractedTasks: [TaskItem] = []
+    private(set) var tasksAddedCount = 0
+    private(set) var recordingStartCount = 0
+    private(set) var errorCount = 0
+    private(set) var lastEngine: ExtractionEngine?
     /// True after an AI failure, so the UI can offer demo data for the pitch.
     private(set) var canOfferMockFallback = false
 
@@ -22,6 +26,7 @@ final class RecordingViewModel {
     }
 
     var transcribedText: String { audioService.transcribedText }
+    var audioLevel: Float { audioService.audioLevel }
     var isRecording: Bool { audioService.isRecording }
     var isFinalizingTranscription: Bool { audioService.isFinalizing }
     var isDemoMode: Bool { Constants.useMockData }
@@ -56,12 +61,15 @@ final class RecordingViewModel {
         lastExtractedTasks = []
         if isDemoMode {
             audioService.startSimulatedRecording()
+            recordingStartCount += 1
             return
         }
         do {
             try await audioService.startRecording()
+            recordingStartCount += 1
         } catch {
             errorMessage = error.localizedDescription
+            errorCount += 1
         }
     }
 
@@ -89,6 +97,7 @@ final class RecordingViewModel {
         audioService.reset()
         manualText = ""
         lastExtractedTasks = []
+        lastEngine = nil
         dismissAlert()
     }
 
@@ -102,23 +111,30 @@ final class RecordingViewModel {
         defer { isProcessing = false }
 
         do {
-            let tasks = try await OpenAIService().extractTasks(from: text)
-            save(tasks)
+            let result = try await TaskExtractionService().extractTasks(from: text)
+            save(result.tasks, engine: result.engine)
         } catch {
             errorMessage = error.localizedDescription
+            errorCount += 1
             canOfferMockFallback = true
         }
     }
 
-    private func save(_ tasks: [TaskItem]) {
+    private func save(_ tasks: [TaskItem], engine: ExtractionEngine? = nil) {
         for task in tasks {
             modelContext.insert(task)
         }
         do {
             try modelContext.save()
             lastExtractedTasks = tasks
+            tasksAddedCount += tasks.count
+            lastEngine = engine
+            for task in tasks {
+                Task { await ReminderService.schedule(for: task) }
+            }
         } catch {
             errorMessage = "No se pudieron guardar las tareas: \(error.localizedDescription)"
+            errorCount += 1
         }
     }
 }

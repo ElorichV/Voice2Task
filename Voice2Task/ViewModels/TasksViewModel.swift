@@ -18,9 +18,15 @@ final class TasksViewModel {
     func toggleCompletion(_ task: TaskItem) {
         task.isCompleted.toggle()
         save()
+        if task.isCompleted {
+            ReminderService.cancel(for: task)
+        } else {
+            Task { await ReminderService.schedule(for: task) }
+        }
     }
 
     func delete(_ task: TaskItem) {
+        ReminderService.cancel(for: task)
         modelContext.delete(task)
         save()
     }

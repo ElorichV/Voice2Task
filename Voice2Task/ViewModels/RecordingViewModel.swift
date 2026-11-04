@@ -129,6 +129,9 @@ final class RecordingViewModel {
             lastExtractedTasks = tasks
             tasksAddedCount += tasks.count
             lastEngine = engine
+            for task in tasks {
+                Task { await ReminderService.schedule(for: task) }
+            }
         } catch {
             errorMessage = "No se pudieron guardar las tareas: \(error.localizedDescription)"
             errorCount += 1

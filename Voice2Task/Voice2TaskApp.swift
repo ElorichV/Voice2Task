@@ -1,9 +1,11 @@
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 @main
 struct Voice2TaskApp: App {
     let modelContainer: ModelContainer
+    private let notificationDelegate: ReminderNotificationDelegate
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     @State private var recordingViewModel: RecordingViewModel
@@ -11,6 +13,10 @@ struct Voice2TaskApp: App {
     @State private var gitHubViewModel: GitHubViewModel
 
     init() {
+        let notificationDelegate = ReminderNotificationDelegate()
+        self.notificationDelegate = notificationDelegate
+        UNUserNotificationCenter.current().delegate = notificationDelegate
+
         let container = AppModelContainer.shared
         modelContainer = container
         _recordingViewModel = State(initialValue: RecordingViewModel(modelContext: container.mainContext))
